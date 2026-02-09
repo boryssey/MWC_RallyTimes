@@ -68,27 +68,61 @@ namespace RallyTimes
         public FsmFloat totalTimeFsmFloat;
         public FsmFloat penaltyFsmFloat;
 
+        public bool isSetup = false;
+
         public RallyDay(string newTimingObjPath, string identifier)
         {
             this.identifier = identifier;
             timingObjPath = newTimingObjPath;
-            timingObj = GameObject.Find(timingObjPath);
-            timingFsm = timingObj.GetPlayMaker("Timing");
-            clockFsm = timingObj.GetPlayMaker("Clock");
-            totalTimeFsmFloat = clockFsm.GetVariable<FsmFloat>("TimeTotal");
-            penaltyFsmFloat = clockFsm.GetVariable<FsmFloat>("Penalty");
-            for (int i = 1; i <= 4; i++)
+            Init();
+        }
+
+        public bool Init()
+        {
+            try
             {
-                string sector = $"Sector{i:00}";
-                var sectorVariable = timingFsm.GetVariable<FsmFloat>(sector);
-
-
-                if (sectorVariable != null)
+                timingObj = GameObject.Find(timingObjPath);
+                if (timingObj == null)
                 {
-                    sectorTimeVariables[sector] = sectorVariable;
+                    isSetup = false;
+                    return false;
                 }
+                timingFsm = timingObj.GetPlayMaker("Timing");
+                if (!timingFsm)
+                {
+                    isSetup = false;
+                    return false;
+                }
+                clockFsm = timingObj.GetPlayMaker("Clock");
+                if (!clockFsm)
+                {
+                    isSetup = false;
+                    return false;
+                }
+                totalTimeFsmFloat = clockFsm.GetVariable<FsmFloat>("TimeTotal");
+                penaltyFsmFloat = clockFsm.GetVariable<FsmFloat>("Penalty");
+                for (int i = 1; i <= 4; i++)
+                {
+                    string sector = $"Sector{i:00}";
+                    var sectorVariable = timingFsm.GetVariable<FsmFloat>(sector);
+
+
+                    if (sectorVariable != null)
+                    {
+                        sectorTimeVariables[sector] = sectorVariable;
+                    }
+                }
+                isSetup = true;
+                return true;
+            }
+            catch (Exception e)
+            {
+                ModConsole.Error(e.Message);
+                ModConsole.Error(e.StackTrace);
+                return false;
             }
         }
+
         public float TotalTime
         {
             get
@@ -462,7 +496,7 @@ namespace RallyTimes
         public override string ID => "RallyTimes"; // Your (unique) mod ID 
         public override string Name => "RallyTimes"; // Your mod name
         public override string Author => "BORYSSEY"; // Name of the Author (your name)
-        public override string Version => "1.0"; // Version
+        public override string Version => "1.1"; // Version
         public override string Description => "Display your rally total, section time and penalty"; // Short description of your mod 
         public override Game SupportedGames => Game.MyWinterCar;
 
@@ -507,16 +541,12 @@ namespace RallyTimes
         public override void ModSetup()
         {
             SetupFunction(Setup.OnLoad, Mod_OnLoad);
-            SetupFunction(Setup.OnSave, Mod_OnSave);
             SetupFunction(Setup.PostLoad, Mod_PostLoad);
             SetupFunction(Setup.Update, Mod_Update);
             SetupFunction(Setup.OnGUI, Mod_OnGui);
             SetupFunction(Setup.ModSettings, Mod_Settings);
         }
-        private void Mod_OnSave()
-        {
 
-        }
 
         SettingsKeybind showLeaderboard;
 
@@ -532,16 +562,25 @@ namespace RallyTimes
             saturdaySettings = new RallyDayBestTimeSettings("Day 1");
             sundaySettings = new RallyDayBestTimeSettings("Day 2");
         }
+        private bool isModSetup = false;
+
+        private FsmInt day;
 
         private void Mod_OnLoad()
         {
+            day = PlayMakerGlobals.Instance.Variables.GetFsmInt("GlobalDay");
             saturdayRace = new RallyDay(saturdayTimingPath, "Day 1");
             sundayRace = new RallyDay(sundayTimingPath, "Day 2");
 
             isModSetup = true;
         }
-
-        private bool isModSetup = false;
+        private bool isRaceDay()
+        {
+            if (day == null) return false;
+            if(day.Value == 6 ||  day.Value == 7) return true;
+            return false;
+            
+        }
 
 
         private bool IsRaceActive() => saturdayRace.IsActive() || sundayRace.IsActive();
@@ -556,7 +595,7 @@ namespace RallyTimes
 
         void Mod_OnGui()
         {
-            if (!guiComponent || !isModVisible)
+            if (!guiComponent || guiComponent == null || !isModVisible || saturdayRace == null || sundayRace == null || !sundayRace.isSetup || !saturdayRace.isSetup)
             {
                 return;
             }
@@ -598,6 +637,10 @@ namespace RallyTimes
             {
                 return;
             }
+            if(!isRaceDay())
+            {
+                return;
+            }
             if (toggleVisibilityKeybind.GetKeybindDown())
             {
                 isModVisible = !isModVisible;
@@ -614,6 +657,22 @@ namespace RallyTimes
             if (showLeaderboard.GetKeybindDown())
             {
                 OpenResultsSheet();
+            }
+            if(!saturdayRace.isSetup)
+            {
+                var isSetup = saturdayRace.Init();
+                if(!isSetup)
+                {
+                    return;
+                }
+            }
+            if(!sundayRace.isSetup)
+            {
+                var isSetup = sundayRace.Init();
+                if (!isSetup)
+                {
+                    return;
+                }
             }
 
 
