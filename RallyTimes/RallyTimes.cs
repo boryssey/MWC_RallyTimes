@@ -67,12 +67,14 @@ namespace RallyTimes
 
         public FsmFloat totalTimeFsmFloat;
         public FsmFloat penaltyFsmFloat;
+        public int numOfSectors;
 
         public bool isSetup = false;
 
-        public RallyDay(string newTimingObjPath, string identifier)
+        public RallyDay(string newTimingObjPath, string identifier, int numOfSectors = 4)
         {
             this.identifier = identifier;
+            this.numOfSectors = numOfSectors;
             timingObjPath = newTimingObjPath;
             Init();
         }
@@ -101,7 +103,7 @@ namespace RallyTimes
                 }
                 totalTimeFsmFloat = clockFsm.GetVariable<FsmFloat>("TimeTotal");
                 penaltyFsmFloat = clockFsm.GetVariable<FsmFloat>("Penalty");
-                for (int i = 1; i <= 4; i++)
+                for (int i = 1; i <= numOfSectors; i++)
                 {
                     string sector = $"Sector{i:00}";
                     var sectorVariable = timingFsm.GetVariable<FsmFloat>(sector);
@@ -185,14 +187,16 @@ namespace RallyTimes
         public SettingsTextBox bestTotalTimeSettings;
 
         public string identifier;
+        public int numOfSectors = 4;
 
-        public RallyDayBestTimeSettings(string identifier)
+        public RallyDayBestTimeSettings(string identifier, int numOfSectors = 4)
         {
             this.identifier = identifier;
+            this.numOfSectors = numOfSectors;
             Settings.AddHeader($"{identifier} Best Times");
             Settings.CreateGroup();
             bestTotalTimeSettings = Settings.AddTextBox(GetSettingIdentifier("totalTime"), "Total", "0", string.Empty, InputField.ContentType.DecimalNumber);
-            for (int i = 1; i <= 4; i++)
+            for (int i = 1; i <= numOfSectors; i++)
             {
                 string sector = $"Sector{i:00}";
                 string settingId = GetSettingIdentifier(sector);
@@ -226,7 +230,7 @@ namespace RallyTimes
             get
             {
                 Dictionary<string, float> bestSectorTimes = [];
-                for (int i = 1; i <= 4; i++)
+                for (int i = 1; i <= numOfSectors; i++)
                 {
                     string sector = $"Sector{i:00}";
                     string settingId = GetSettingIdentifier(sector);
@@ -249,12 +253,15 @@ namespace RallyTimes
 
     public class RallyTimesGUI : MonoBehaviour
     {
-        public Dictionary<string, float> sectorTimesDay1 = [];
-        public Dictionary<string, float> sectorTimesDay2 = [];
-        public float day1PenaltyTime = 0;
-        public float day2PenaltyTime = 0;
-        public float day1TotalTime = 0;
-        public float day2TotalTime = 0;
+        public Dictionary<string, float> ss1SectorTimes = [];
+        public Dictionary<string, float> ss2SectorTimes = [];
+        public Dictionary<string, float> ss3SectorTimes = [];
+        public float ss1PenaltyTime = 0;
+        public float ss2PenaltyTime = 0;
+        public float ss3PenaltyTime = 0;
+        public float ss1TotalTime = 0;
+        public float ss2TotalTime = 0;
+        public float ss3TotalTime = 0;
         private GUIStyle labelStyle;
         private GUIStyle positiveLabelStyle;
         private GUIStyle negativeLabelStyle;
@@ -262,22 +269,27 @@ namespace RallyTimes
         private bool stylesInitialized = false;
         public bool isVisible = false;
 
-        public Dictionary<string, float> bestSectorTimesDay1 = [];
-        public Dictionary<string, float> bestSectorTimesDay2 = [];
+        public Dictionary<string, float> ss1BestSectorTimes = [];
+        public Dictionary<string, float> ss2BestSectorTimes = [];
+        public Dictionary<string, float> ss3BestSectorTimes = [];
+ 
+        public float ss1TotalTimeBest;
+        public float ss2TotalTimeBest;
+        public float ss3TotalTimeBest;
 
-        public float day1TotalTimeBest;
-        public float day2TotalTimeBest;
-       
 
-        public string saturdayActiveState = null;
-        public string sundayActiveState = null;
+        public string ss1ActiveState = null;
+        public string ss2ActiveState = null;
+        public string ss3ActiveState = null;
 
         private readonly Dictionary<string, string> MappedCheckpointNames = new()
         {
             {"Sector01", "Checkpoint 1" },
             {"Sector02", "Checkpoint 2" },
             {"Sector03", "Checkpoint 3" },
-            {"Sector04", "Checkpoint 4" }
+            {"Sector04", "Checkpoint 4" },
+            {"Sector05", "Checkpoint 5" },
+            {"Sector06", "Checkpoint 6" }
         };
 
 
@@ -381,7 +393,7 @@ namespace RallyTimes
 
             var sortedSectors = new List<string>(sectorData.Keys);
             sortedSectors.Sort();
-            lines.Add([InitLineData(header, labelStyle)]);
+            lines.Add([InitLineData(header.ToUpper(), labelStyle)]);
 
             foreach (var sectorName in sortedSectors)
             {
@@ -440,7 +452,11 @@ namespace RallyTimes
                 }
             }
 
-            if (sectorTimesDay1.Count == 0 && sectorTimesDay2.Count == 0 && day1TotalTime <= 0 && day1TotalTime != 4000 && day2TotalTime <= 0 && day2TotalTime != 4000)
+            bool isValidSS1 = ss1SectorTimes.Count > 0 && ss1TotalTime > 0;
+            bool isValidSS2 = ss2SectorTimes.Count > 0 && ss2TotalTime > 0;
+            bool isValidSS3 = ss3SectorTimes.Count > 0 && ss3TotalTime > 0;
+
+            if (!isValidSS1 && !isValidSS2 && !isValidSS3)
             {
                 return;
             }
@@ -455,15 +471,22 @@ namespace RallyTimes
 
             List<List<LineData>> day1Lines = [];
             List<List<LineData>> day2Lines = [];
-            if (sectorTimesDay1.Count > 0 || day1TotalTime > 0)
+            if (ss1SectorTimes.Count > 0 || ss1TotalTime > 0)
             {
-                day1Lines = CreateDayLineData(sectorTimesDay1, bestSectorTimesDay1, day1TotalTime, day1TotalTimeBest, day1PenaltyTime, "Day 1:", saturdayActiveState);
+                day1Lines = CreateDayLineData(ss1SectorTimes, ss1BestSectorTimes, ss1TotalTime, ss1TotalTimeBest, ss1PenaltyTime, "SS1:", ss1ActiveState);
             }
-
-            if (sectorTimesDay2.Count > 0 || day2TotalTime > 0)
+            if (ss2SectorTimes.Count > 0 || ss2TotalTime > 0)
             {
-                day2Lines = CreateDayLineData(sectorTimesDay2, bestSectorTimesDay2, day2TotalTime, day2TotalTimeBest, day2PenaltyTime, "Day 2:", sundayActiveState);
+                day1Lines = CreateDayLineData(ss2SectorTimes, ss2BestSectorTimes, ss2TotalTime, ss2TotalTimeBest, ss2PenaltyTime, "SS2:", ss2ActiveState);
             }
+            if (ss3SectorTimes.Count > 0 || ss3TotalTime > 0)
+            {
+                day1Lines = CreateDayLineData(ss3SectorTimes, ss3BestSectorTimes, ss3TotalTime, ss3TotalTimeBest, ss3PenaltyTime, "ss3:", ss3ActiveState);
+            }
+            //if (ss2SectorTimes.Count > 0 || ss > 0)
+            //{
+            //    day2Lines = CreateDayLineData(sectorTimesDay2, bestSectorTimesDay2, day2TotalTime, day2TotalTimeBest, day2PenaltyTime, "Day 2:", sundayActiveState);
+            //}
             List<List<LineData>> lines = [.. day1Lines, .. day2Lines];
             if (lines.Count() > 0)
             {
@@ -496,14 +519,16 @@ namespace RallyTimes
         public override string ID => "RallyTimes"; // Your (unique) mod ID 
         public override string Name => "RallyTimes"; // Your mod name
         public override string Author => "BORYSSEY"; // Name of the Author (your name)
-        public override string Version => "1.1"; // Version
+        public override string Version => "1.2"; // Version
         public override string Description => "Display your rally total, section time and penalty"; // Short description of your mod 
         public override Game SupportedGames => Game.MyWinterCar;
 
         public static SettingsKeybind toggleVisibilityKeybind;
 
-        readonly string saturdayTimingPath = "RACES/RALLY/Saturday/TimingSaturday";
-        readonly string sundayTimingPath = "RACES/RALLY/Sunday/TimingSunday";
+        
+        readonly string ss1TimingPath = "RACES/RALLY/SS1/TimingSS1";
+        readonly string ss2TimingPath = "RACES/RALLY/SS2/TimingSS2";
+        readonly string ss3TimingPath = "RACES/RALLY/SS3/TimingSS3";
 
         private RallyTimesGUI guiComponent;
         private GameObject guiObject;
@@ -511,8 +536,6 @@ namespace RallyTimes
         private bool isModVisible = true;
 
         public static SettingsKeybind saveBestTimesKeybind;
-        public string saturdayActiveState = null;
-        public string sundayActiveState = null;
 
         public bool isLeaderboardShown = false;
 
@@ -550,8 +573,8 @@ namespace RallyTimes
 
         SettingsKeybind showLeaderboard;
 
-        RallyDay saturdayRace, sundayRace;
-        RallyDayBestTimeSettings saturdaySettings, sundaySettings;
+        RallyDay ss1Race, ss2Race, ss3Race;
+        RallyDayBestTimeSettings ss1Settings, ss2Settings, ss3Settings;
         private void Mod_Settings()
         {
             Keybind.AddHeader("Rally Times Settings");
@@ -559,8 +582,9 @@ namespace RallyTimes
             toggleVisibilityKeybind = Keybind.Add("toggleRallyTimesVisibility", "Toggle Visibility", KeyCode.F8);
             saveBestTimesKeybind = Keybind.Add("saveRallyBestTimes", "Save current time as best", KeyCode.X);
             showLeaderboard = Keybind.Add("showLeaderboard", "Show leaderboard", KeyCode.F4);
-            saturdaySettings = new RallyDayBestTimeSettings("Day 1");
-            sundaySettings = new RallyDayBestTimeSettings("Day 2");
+            ss1Settings = new RallyDayBestTimeSettings("SS1");
+            ss2Settings = new RallyDayBestTimeSettings("SS2", 6);
+            ss3Settings = new RallyDayBestTimeSettings("SS3");
         }
         private bool isModSetup = false;
 
@@ -569,8 +593,9 @@ namespace RallyTimes
         private void Mod_OnLoad()
         {
             day = PlayMakerGlobals.Instance.Variables.GetFsmInt("GlobalDay");
-            saturdayRace = new RallyDay(saturdayTimingPath, "Day 1");
-            sundayRace = new RallyDay(sundayTimingPath, "Day 2");
+            ss1Race = new RallyDay(ss1TimingPath, "SS1");
+            ss2Race = new RallyDay(ss2TimingPath, "SS2", 6);
+            ss3Race = new RallyDay(ss3TimingPath, "SS3");
 
             isModSetup = true;
         }
@@ -583,7 +608,7 @@ namespace RallyTimes
         }
 
 
-        private bool IsRaceActive() => saturdayRace.IsActive() || sundayRace.IsActive();
+        private bool IsRaceActive() => ss1Race.IsActive() || ss3Race.IsActive();
 
         private void Mod_PostLoad()
         {
@@ -595,18 +620,24 @@ namespace RallyTimes
 
         void Mod_OnGui()
         {
-            if (!guiComponent || guiComponent == null || !isModVisible || saturdayRace == null || sundayRace == null || !sundayRace.isSetup || !saturdayRace.isSetup)
+            if (!guiComponent || guiComponent == null || !isModVisible || ss1Race == null || ss3Race == null || ss2Race == null || !ss3Race.isSetup || !ss1Race.isSetup || !ss2Race.isSetup)
             {
                 return;
             }
-            guiComponent.bestSectorTimesDay1 = saturdaySettings.BestSectorTimes;
-            guiComponent.day1TotalTimeBest = saturdaySettings.BestTotalTime;
-            guiComponent.sundayActiveState = sundayRace.ActiveStateName;
+            guiComponent.ss1BestSectorTimes = ss1Settings.BestSectorTimes;
+            guiComponent.ss1TotalTimeBest = ss1Settings.BestTotalTime;
+            guiComponent.ss1ActiveState = ss1Race.ActiveStateName;
 
-            guiComponent.bestSectorTimesDay2 = sundaySettings.BestSectorTimes;
-            guiComponent.day2TotalTimeBest = sundaySettings.BestTotalTime;
 
-            guiComponent.saturdayActiveState = saturdayRace.ActiveStateName;
+            guiComponent.ss2BestSectorTimes = ss2Settings.BestSectorTimes;
+            guiComponent.ss2TotalTimeBest = ss2Settings.BestTotalTime;
+            guiComponent.ss2ActiveState = ss2Race.ActiveStateName;
+
+            
+            guiComponent.ss3BestSectorTimes = ss3Settings.BestSectorTimes;
+            guiComponent.ss3TotalTimeBest = ss3Settings.BestTotalTime;
+            guiComponent.ss3ActiveState = ss3Race.ActiveStateName;
+
 
             guiComponent.Render();
 
@@ -658,17 +689,25 @@ namespace RallyTimes
             {
                 OpenResultsSheet();
             }
-            if(!saturdayRace.isSetup)
+            if(!ss1Race.isSetup)
             {
-                var isSetup = saturdayRace.Init();
+                var isSetup = ss1Race.Init();
                 if(!isSetup)
                 {
                     return;
                 }
             }
-            if(!sundayRace.isSetup)
+            if (!ss2Race.isSetup)
             {
-                var isSetup = sundayRace.Init();
+                var isSetup = ss2Race.Init();
+                if (!isSetup)
+                {
+                    return;
+                }
+            }
+            if (!ss3Race.isSetup)
+            {
+                var isSetup = ss3Race.Init();
                 if (!isSetup)
                 {
                     return;
@@ -680,13 +719,17 @@ namespace RallyTimes
             var shouldSaveCurrentTime = saveBestTimesKeybind.GetKeybindDown();
             if (shouldSaveCurrentTime)
             {
-                if (saturdayRace.TotalTime > 0)
+                if (ss1Race.TotalTime > 0)
                 {
-                    saturdaySettings.SaveBestTime(saturdayRace.SectorTimes, saturdayRace.TotalTime);
+                    ss1Settings.SaveBestTime(ss1Race.SectorTimes, ss1Race.TotalTime);
                 }
-                if (sundayRace.TotalTime> 0)
+                if(ss2Race.TotalTime > 0)
                 {
-                    sundaySettings.SaveBestTime(sundayRace.SectorTimes, sundayRace.TotalTime);
+                    ss2Settings.SaveBestTime(ss2Race.SectorTimes, ss2Race.TotalTime);
+                }
+                if (ss3Race.TotalTime> 0)
+                {
+                    ss2Settings.SaveBestTime(ss3Race.SectorTimes, ss3Race.TotalTime);
                 }
             }
 
@@ -695,15 +738,17 @@ namespace RallyTimes
             //    return;
             //}
 
-            guiComponent.sectorTimesDay1 = saturdayRace.SectorTimes;
-            guiComponent.day1TotalTime = saturdayRace.TotalTime;
-            guiComponent.day1PenaltyTime = saturdayRace.Penalty;
+            guiComponent.ss1SectorTimes = ss1Race.SectorTimes;
+            guiComponent.ss1TotalTime = ss1Race.TotalTime;
+            guiComponent.ss1PenaltyTime = ss1Race.Penalty;
 
-            guiComponent.sectorTimesDay2 = sundayRace.SectorTimes;
-            guiComponent.day2TotalTime = sundayRace.TotalTime;
-            guiComponent.day1PenaltyTime = sundayRace.Penalty;
-            
+            guiComponent.ss2SectorTimes = ss2Race.SectorTimes;
+            guiComponent.ss2TotalTime = ss2Race.TotalTime;
+            guiComponent.ss2PenaltyTime = ss2Race.Penalty;
 
+            guiComponent.ss3SectorTimes = ss3Race.SectorTimes;
+            guiComponent.ss3TotalTime = ss3Race.TotalTime;
+            guiComponent.ss3PenaltyTime = ss3Race.Penalty;
         }
     }
 }
