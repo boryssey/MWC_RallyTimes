@@ -5,7 +5,7 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 using UnityEngine.UI;
-// -mscloader-devmode
+// -mscloader-devmode --doorstop-mono-debug-enabled true --doorstop-mono-debug-address 127.0.0.1:56000
 /*
  * 
  * 
@@ -171,7 +171,7 @@ namespace RallyTimes
                 }
                 return timingFsm.ActiveStateName;
             }
-           
+
         }
 
         public bool IsActive()
@@ -272,7 +272,7 @@ namespace RallyTimes
         public Dictionary<string, float> ss1BestSectorTimes = [];
         public Dictionary<string, float> ss2BestSectorTimes = [];
         public Dictionary<string, float> ss3BestSectorTimes = [];
- 
+
         public float ss1TotalTimeBest;
         public float ss2TotalTimeBest;
         public float ss3TotalTimeBest;
@@ -495,15 +495,16 @@ namespace RallyTimes
                 GUILayout.BeginVertical(GUILayout.ExpandHeight(true));
                 foreach (var lineData in lines)
                 {
-                    if(lineData != null && lineData.Count() > 0) { 
-                    GUILayout.BeginHorizontal(GUILayout.Width(boxWidth), GUILayout.Height(lineHeight));
-                    
-                    foreach (var line in lineData)
+                    if (lineData != null && lineData.Count() > 0)
                     {
-                        GUILayout.Label(line.text, line.style, GUILayout.ExpandWidth(true));
-                    }
-                    GUILayout.EndHorizontal();
-                    GUILayout.Space(-2);
+                        GUILayout.BeginHorizontal(GUILayout.Width(boxWidth), GUILayout.Height(lineHeight));
+
+                        foreach (var line in lineData)
+                        {
+                            GUILayout.Label(line.text, line.style, GUILayout.ExpandWidth(true));
+                        }
+                        GUILayout.EndHorizontal();
+                        GUILayout.Space(-2);
                     }
 
                 }
@@ -519,13 +520,13 @@ namespace RallyTimes
         public override string ID => "RallyTimes"; // Your (unique) mod ID 
         public override string Name => "RallyTimes"; // Your mod name
         public override string Author => "BORYSSEY"; // Name of the Author (your name)
-        public override string Version => "1.2"; // Version
+        public override string Version => "1.3"; // Version
         public override string Description => "Display your rally total, section time and penalty"; // Short description of your mod 
         public override Game SupportedGames => Game.MyWinterCar;
 
         public static SettingsKeybind toggleVisibilityKeybind;
 
-        
+
         readonly string ss1TimingPath = "RACES/RALLY/SS1/TimingSS1";
         readonly string ss2TimingPath = "RACES/RALLY/SS2/TimingSS2";
         readonly string ss3TimingPath = "RACES/RALLY/SS3/TimingSS3";
@@ -602,9 +603,9 @@ namespace RallyTimes
         private bool isRaceDay()
         {
             if (day == null) return false;
-            if(day.Value == 6 ||  day.Value == 7) return true;
+            if (day.Value == 6 || day.Value == 7) return true;
             return false;
-            
+
         }
 
 
@@ -633,7 +634,7 @@ namespace RallyTimes
             guiComponent.ss2TotalTimeBest = ss2Settings.BestTotalTime;
             guiComponent.ss2ActiveState = ss2Race.ActiveStateName;
 
-            
+
             guiComponent.ss3BestSectorTimes = ss3Settings.BestSectorTimes;
             guiComponent.ss3TotalTimeBest = ss3Settings.BestTotalTime;
             guiComponent.ss3ActiveState = ss3Race.ActiveStateName;
@@ -668,7 +669,7 @@ namespace RallyTimes
             {
                 return;
             }
-            if(!isRaceDay())
+            if (!isRaceDay())
             {
                 return;
             }
@@ -689,10 +690,10 @@ namespace RallyTimes
             {
                 OpenResultsSheet();
             }
-            if(!ss1Race.isSetup)
+            if (!ss1Race.isSetup)
             {
                 var isSetup = ss1Race.Init();
-                if(!isSetup)
+                if (!isSetup)
                 {
                     return;
                 }
@@ -715,7 +716,7 @@ namespace RallyTimes
             }
 
 
-           
+
             var shouldSaveCurrentTime = saveBestTimesKeybind.GetKeybindDown();
             if (shouldSaveCurrentTime)
             {
@@ -723,13 +724,13 @@ namespace RallyTimes
                 {
                     ss1Settings.SaveBestTime(ss1Race.SectorTimes, ss1Race.TotalTime);
                 }
-                if(ss2Race.TotalTime > 0)
+                if (ss2Race.TotalTime > 0)
                 {
                     ss2Settings.SaveBestTime(ss2Race.SectorTimes, ss2Race.TotalTime);
                 }
-                if (ss3Race.TotalTime> 0)
+                if (ss3Race.TotalTime > 0)
                 {
-                    ss2Settings.SaveBestTime(ss3Race.SectorTimes, ss3Race.TotalTime);
+                    ss3Settings.SaveBestTime(ss3Race.SectorTimes, ss3Race.TotalTime);
                 }
             }
 
